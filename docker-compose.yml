@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: taskmanager-db
+    environment:
+      POSTGRES_DB: ethara
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "2109"
+    ports:
+      - "2109:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ethara"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    container_name: taskmanager-backend
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/ethara
+      DATABASE_USERNAME: postgres
+      DATABASE_PASSWORD: "2109"
+      JWT_SECRET: 4e7f2b8a3c1d5e9f0a2b4c6d8e0f2a4b6c8d0e2f4a6b8c0d2e4f6a8b0c2d4e6f
+      JWT_EXPIRATION: 86400000
+      CORS_ORIGINS: http://localhost:5173,http://localhost:80
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:8080/api
+    container_name: taskmanager-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

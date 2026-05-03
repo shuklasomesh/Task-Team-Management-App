@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_in_Chrome__browser_batch",
+      "mcp__Claude_in_Chrome__read_console_messages",
+      "Bash(./mvnw clean *)",
+      "PowerShell(Set-Location \"D:\\\\download\\\\Ethara Task\\\\backend\"; java -cp \".mvn\\\\wrapper\\\\maven-wrapper.jar\" \"-Dmaven.multiModuleProjectDirectory=$PWD\" \"--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED\" \"--add-opens=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED\" org.apache.maven.wrapper.MavenWrapperMain clean compile 2>&1 | Select-Object -Last 20)",
+      "PowerShell(Start-Sleep -Seconds 10; try { $r = Invoke-RestMethod -Uri \"http://localhost:8080/api/auth/login\" -Method POST -ContentType \"application/json\" -Body '{\"email\":\"test@test.com\",\"password\":\"wrong\"}'; $r } catch { \"Status: $\\($_.Exception.Response.StatusCode.value__\\)\" })",
+      "PowerShell(netstat -ano)"
+    ]
+  }
+}
