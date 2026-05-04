@@ -1,4 +1,4 @@
-# -- Stage 1: Build React app --
+# ── Stage 1: Build React app ──────────────────────────────────────────────────
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY package*.json ./
@@ -8,7 +8,7 @@ ARG VITE_API_URL=/api
 ENV VITE_API_URL=$VITE_API_URL
 RUN npm run build
 
-# -- Stage 2: Serve with nginx + envsubst support --
+# ── Stage 2: Serve with nginx + envsubst support ───────────────────────────────
 FROM nginx:alpine
 RUN apk add --no-cache bash
 
