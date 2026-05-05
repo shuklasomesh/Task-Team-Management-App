@@ -1,7 +1,7 @@
 package com.taskmanager.config;
 
 import com.taskmanager.security.JwtAuthenticationFilter;
-import jakarta.servlet.http.HttpServletResponse; // ADDED: Required for line 54
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -48,7 +48,6 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // Handle Unauthorized Errors properly
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -58,14 +57,10 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Publicly accessible endpoints and Railway health checks
-                .requestMatchers("/", "/index.html", "/api/sessions/heartbeat", "/error").permitAll()
+                .requestMatchers("/", "/index.html", "/api/sessions/heartbeat", "/error", "/favicon.ico").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
-                // ADDED: Permitting endpoints that were throwing 403s in logs
                 .requestMatchers("/api/skills/leaderboard", "/api/sessions/member-stats", "/api/notifications").permitAll()
-                // Allow CORS Pre-flight
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // Secured endpoints
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
@@ -85,7 +80,9 @@ public class SecurityConfig {
         }
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
+        // Added 'Origin' and 'Access-Control' headers to fix potential pre-flight 403s
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin", "Access-Control-Request-Method", "Access-Control-Request-Headers"));
+        config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 
@@ -98,3 +95,17 @@ public class SecurityConfig {
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder());
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
