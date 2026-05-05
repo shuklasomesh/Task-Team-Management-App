@@ -23,6 +23,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 @Configuration
@@ -33,7 +34,8 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
-    @Value("${cors.allowed-origins}")
+    // Use the exact key from your Railway Environment Variables
+    @Value("${CORS_ORIGINS:http://localhost:5173}")
     private String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, UserDetailsService userDetailsService) {
@@ -48,8 +50,13 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // 1. Allow root and health checks so Railway and Frontend don't get 403
+                .requestMatchers("/", "/index.html", "/api/sessions/heartbeat").permitAll()
+                // 2. Allow Auth endpoints
                 .requestMatchers("/api/auth/**").permitAll()
+                // 3. Allow CORS Pre-flight requests
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // 4. Everything else requires valid JWT
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
@@ -60,12 +67,19 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = Arrays.asList(allowedOrigins.split(","));
-        config.setAllowedOrigins(origins);
+        
+        // Handle comma-separated origins safely
+        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
+            config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
+        } else {
+            config.setAllowedOrigins(Collections.singletonList("*"));
+        }
+
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
