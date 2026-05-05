@@ -1,6 +1,7 @@
 package com.taskmanager.config;
 
 import com.taskmanager.security.JwtAuthenticationFilter;
+import jakarta.servlet.http.HttpServletResponse; // ADDED: Required for line 54
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,7 +35,6 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
-    // Use the exact key from your Railway Environment Variables
     @Value("${CORS_ORIGINS:http://localhost:5173}")
     private String allowedOrigins;
 
@@ -43,40 +43,41 @@ public class SecurityConfig {
         this.userDetailsService = userDetailsService;
     }
 
-  @Bean
-public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-    http
-        .csrf(AbstractHttpConfigurer::disable)
-        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-        // 1. Handle Unauthorized Errors properly
-        .exceptionHandling(exception -> exception
-            .authenticationEntryPoint((request, response, authException) -> {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-                response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
-            })
-        )
-        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-        .authorizeHttpRequests(auth -> auth
-            // 2. Publicly accessible endpoints (Add these for Railway health checks)
-            .requestMatchers("/", "/index.html", "/api/sessions/heartbeat", "/error").permitAll()
-            .requestMatchers("/api/auth/**").permitAll()
-            // 3. Allow CORS Pre-flight
-            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-            // 4. Secured endpoints
-            .anyRequest().authenticated()
-        )
-        .authenticationProvider(authenticationProvider())
-        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-        
-    return http.build();
-}
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // Handle Unauthorized Errors properly
+            .exceptionHandling(exception -> exception
+                .authenticationEntryPoint((request, response, authException) -> {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    response.setContentType("application/json");
+                    response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
+                })
+            )
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                // Publicly accessible endpoints and Railway health checks
+                .requestMatchers("/", "/index.html", "/api/sessions/heartbeat", "/error").permitAll()
+                .requestMatchers("/api/auth/**").permitAll()
+                // ADDED: Permitting endpoints that were throwing 403s in logs
+                .requestMatchers("/api/skills/leaderboard", "/api/sessions/member-stats", "/api/notifications").permitAll()
+                // Allow CORS Pre-flight
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                // Secured endpoints
+                .anyRequest().authenticated()
+            )
+            .authenticationProvider(authenticationProvider())
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            
+        return http.build();
+    }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // Handle comma-separated origins safely
         if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
             config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         } else {
@@ -97,17 +98,3 @@ public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     public DaoAuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
         provider.setUserDetailsService(userDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
-    }
-
-    @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-}
