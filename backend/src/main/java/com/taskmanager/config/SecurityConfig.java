@@ -43,26 +43,34 @@ public class SecurityConfig {
         this.userDetailsService = userDetailsService;
     }
 
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
-            .csrf(AbstractHttpConfigurer::disable)
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                // 1. Allow root and health checks so Railway and Frontend don't get 403
-                .requestMatchers("/", "/index.html", "/api/sessions/heartbeat").permitAll()
-                // 2. Allow Auth endpoints
-                .requestMatchers("/api/auth/**").permitAll()
-                // 3. Allow CORS Pre-flight requests
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                // 4. Everything else requires valid JWT
-                .anyRequest().authenticated()
-            )
-            .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-        return http.build();
-    }
+  @Bean
+public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    http
+        .csrf(AbstractHttpConfigurer::disable)
+        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        // 1. Handle Unauthorized Errors properly
+        .exceptionHandling(exception -> exception
+            .authenticationEntryPoint((request, response, authException) -> {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\": \"Unauthorized\", \"message\": \"" + authException.getMessage() + "\"}");
+            })
+        )
+        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .authorizeHttpRequests(auth -> auth
+            // 2. Publicly accessible endpoints (Add these for Railway health checks)
+            .requestMatchers("/", "/index.html", "/api/sessions/heartbeat", "/error").permitAll()
+            .requestMatchers("/api/auth/**").permitAll()
+            // 3. Allow CORS Pre-flight
+            .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+            // 4. Secured endpoints
+            .anyRequest().authenticated()
+        )
+        .authenticationProvider(authenticationProvider())
+        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        
+    return http.build();
+}
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
