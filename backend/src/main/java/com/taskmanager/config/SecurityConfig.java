@@ -25,35 +25,59 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Configuration
-    @EnableWebSecurity
-    public class SecurityConfig {
+@EnableWebSecurity
+public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-            private final UserDetailsService userDetailsService;
+    private final UserDetailsService userDetailsService;
 
     @Value("${cors.origins:http://localhost:5173}")
-            private String allowedOrigins;
+    private String allowedOrigins;
 
     public SecurityConfig(JwtAuthenticationFilter jwtAuthFilter, UserDetailsService userDetailsService) {
-                this.jwtAuthFilter = jwtAuthFilter;
-                this.userDetailsService = userDetailsService;
+        this.jwtAuthFilter = jwtAuthFilter;
+        this.userDetailsService = userDetailsService;
     }
 
     @Bean
-            public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-                        http
-                                        .csrf(AbstractHttpConfigurer::disable)
-                                        .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-                                        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                                        .authorizeHttpRequests(auth -> auth
-                                                                               .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                                                                               .requestMatchers("/auth/**", "/api/auth/**", "/error", "/favicon.ico").permitAll()
-                                                                               .anyRequest().authenticated()
-                                                                           )
-                                        .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-                        return http.build();
-            }
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(AbstractHttpConfigurer::disable)
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/auth/**", "/api/auth/**", "/error", "/favicon.ico").permitAll()
+                .anyRequest().authenticated()
+            )
+            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
 
     @Bean
-            public CorsConfigurationSource corsConfigurationSource() {
-                        U
+    public CorsConfigurationSource corsConfigurationSource() {
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        CorsConfiguration config = new CorsConfiguration();
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+            .map(s -> s.replace("\"", "").trim())
+            .filter(s -> !s.isEmpty())
+            .collect(Collectors.toList());
+        config.setAllowCredentials(true);
+        config.setAllowedOrigins(origins);
+        config.setAllowedHeaders(Arrays.asList("Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"));
+        config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setMaxAge(3600L);
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
+        return config.getAuthenticationManager();
+    }
+
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
+}
