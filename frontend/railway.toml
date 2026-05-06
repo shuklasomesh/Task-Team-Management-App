@@ -1,8 +1,7 @@
 [build]
-builder = "dockerfile"
-dockerfilePath = "Dockerfile"
+builder = "nixpacks"
 
 [deploy]
-startCommand = "/docker-entrypoint.sh"
+startCommand = "npx serve dist -s -l $PORT"
 healthcheckPath = "/"
 healthcheckTimeout = 120
