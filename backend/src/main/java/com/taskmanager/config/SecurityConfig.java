@@ -100,8 +100,12 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
-        return config.getAuthenticationManager();
+   @Bean
+public AuthenticationManager authenticationManager(HttpSecurity http) throws Exception {
+    return http.getSharedObject(AuthenticationManagerBuilder.class)
+            .authenticationProvider(authenticationProvider())
+            .build();
+}
     }
 
     @Bean
