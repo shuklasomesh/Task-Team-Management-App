@@ -46,7 +46,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            // 1. CORS MUST be processed first
+            // 1. MUST BE FIRST: Process CORS before any security checks
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
@@ -57,11 +57,11 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 2. Added /auth/** to match your login endpoint
+                // 2. Added /auth/** to match your actual Railway logs
                 .requestMatchers("/", "/index.html", "/error", "/favicon.ico").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll() 
                 .requestMatchers("/api/sessions/heartbeat", "/api/skills/leaderboard", "/api/notifications").permitAll()
-                // 3. Explicitly allow preflight OPTIONS requests
+                // 3. Permitting all preflight OPTIONS requests is CRITICAL for CORS
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
@@ -76,11 +76,11 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         
         if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            // Splits your Railway comma-separated string into a list
             config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         }
 
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        // Added 'Origin' and 'Accept' to ensure the preflight check passes
         config.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
@@ -99,7 +99,7 @@ public class SecurityConfig {
         return provider;
     }
 
-    // 4. Fixed AuthenticationManager to use the modern Spring Security 6 approach
+    // Fixed: Modern way to expose AuthenticationManager in Spring Boot 3
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
