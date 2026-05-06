@@ -34,7 +34,6 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final UserDetailsService userDetailsService;
 
-    // Reads from your Railway Variables; defaults to localhost if not found
     @Value("${CORS_ORIGINS:http://localhost:5173}")
     private String allowedOrigins;
 
@@ -47,7 +46,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(AbstractHttpConfigurer::disable)
-            // CORS must be processed FIRST
+            // 1. CORS MUST be processed first
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
@@ -58,11 +57,11 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Permitting base paths and login
+                // 2. Added /auth/** to match your login endpoint
                 .requestMatchers("/", "/index.html", "/error", "/favicon.ico").permitAll()
                 .requestMatchers("/auth/**", "/api/auth/**").permitAll() 
-                .requestMatchers("/api/sessions/heartbeat", "/api/skills/leaderboard", "/api/sessions/member-stats", "/api/notifications").permitAll()
-                // Explicitly permit OPTIONS preflight requests
+                .requestMatchers("/api/sessions/heartbeat", "/api/skills/leaderboard", "/api/notifications").permitAll()
+                // 3. Explicitly allow preflight OPTIONS requests
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
@@ -76,8 +75,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // Split the environment variable string into a list
         if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
+            // Splits your Railway comma-separated string into a list
             config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
         }
 
@@ -100,7 +99,7 @@ public class SecurityConfig {
         return provider;
     }
 
-    // Modern way to expose AuthenticationManager in Spring Security 6+
+    // 4. Fixed AuthenticationManager to use the modern Spring Security 6 approach
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
