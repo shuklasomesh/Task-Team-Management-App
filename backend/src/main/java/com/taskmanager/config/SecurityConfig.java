@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -26,6 +25,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -46,9 +46,9 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // 1. MUST BE FIRST: Use Customizer to ensure CORS is applied before Security
-            .cors(Customizer.withDefaults()) 
             .csrf(AbstractHttpConfigurer::disable)
+            // 1. CORS MUST be processed before Security
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exception -> exception
                 .authenticationEntryPoint((request, response, authException) -> {
                     response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
@@ -58,19 +58,12 @@ public class SecurityConfig {
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Allow static assets and preflight requests
-                .requestMatchers("/", "/index.html", "/error", "/favicon.ico").permitAll()
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() 
-                
-                // Allow authentication endpoints
-                .requestMatchers("/auth/**", "/api/auth/**").permitAll()
-                
-                // Public endpoints
-                .requestMatchers("/api/sessions/heartbeat", "/api/skills/leaderboard", "/api/notifications").permitAll()
-                
+                // 2. Explicitly permit all Preflight requests
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/", "/index.html", "/error", "/favicon.ico", "/auth/**", "/api/auth/**").permitAll()
                 .anyRequest().authenticated()
             )
-            // 2. Filter order: Authentication filter must come after CORS
+            .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
             
         return http.build();
@@ -80,17 +73,14 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         
-        // Split allowed origins and add specific production URL for safety
-        if (allowedOrigins != null && !allowedOrigins.isEmpty()) {
-            config.setAllowedOrigins(Arrays.asList(allowedOrigins.split(",")));
-        }
+        // Robust parsing: cleans quotes, spaces, and empty strings from Railway env vars
+        List<String> origins = Arrays.stream(allowedOrigins.split(","))
+                .map(s -> s.replace("\"", "").trim())
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.toList());
         
-        // Ensure the current production origin is explicitly allowed
-        config.addAllowedOrigin("https://ethara-frontend-somesh-shukla-production.up.railway.app");
-
+        config.setAllowedOrigins(origins);
         config.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        
-        // Critical headers for preflight and JWT
         config.setAllowedHeaders(Arrays.asList(
             "Authorization", 
             "Content-Type", 
@@ -100,10 +90,9 @@ public class SecurityConfig {
             "Access-Control-Request-Method", 
             "Access-Control-Request-Headers"
         ));
-        
         config.setExposedHeaders(List.of("Authorization"));
         config.setAllowCredentials(true);
-        config.setMaxAge(3600L); // Cache preflight response for 1 hour
+        config.setMaxAge(3600L); // Cache preflight for 1 hour
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
