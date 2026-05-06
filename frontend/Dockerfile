@@ -16,10 +16,11 @@ COPY --from=build /app/dist /usr/share/nginx/html
 
 # Store nginx config as a TEMPLATE (envsubst fills in $BACKEND_URL at runtime)
 COPY nginx.conf /etc/nginx/conf.d/default.conf.template
+RUN sed -i 's/\r$//' /etc/nginx/conf.d/default.conf.template
 
 # Entrypoint script runs envsubst then starts nginx
 COPY docker-entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+RUN sed -i 's/\r$//' /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
 
 EXPOSE 80
 CMD ["/docker-entrypoint.sh"]
