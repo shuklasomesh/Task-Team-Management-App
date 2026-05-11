@@ -22,14 +22,15 @@ public class DirectMessageController {
     private final UserService userService;
 
     public DirectMessageController(DirectMessageRepository dmRepository,
-                                   UserRepository userRepository,
-                                   UserService userService) {
+                                    UserRepository userRepository,
+                                    UserService userService) {
         this.dmRepository = dmRepository;
         this.userRepository = userRepository;
         this.userService = userService;
     }
 
     @GetMapping("/users")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getUsers() {
         User me = userService.getCurrentUser();
         List<User> all = userRepository.findAll();
@@ -56,6 +57,7 @@ public class DirectMessageController {
     }
 
     @GetMapping("/{userId}/messages")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getMessages(
             @PathVariable Long userId,
             @RequestParam(required = false) Long after) {
