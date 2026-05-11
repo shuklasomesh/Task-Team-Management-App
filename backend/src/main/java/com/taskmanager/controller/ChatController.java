@@ -6,6 +6,7 @@ import com.taskmanager.repository.ChatMessageRepository;
 import com.taskmanager.service.UserService;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -24,6 +25,7 @@ public class ChatController {
     }
 
     @GetMapping("/messages")
+    @Transactional(readOnly = true)
     public ResponseEntity<List<Map<String, Object>>> getMessages(
             @RequestParam(required = false) Long after) {
         List<ChatMessage> messages;
